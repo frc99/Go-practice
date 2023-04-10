@@ -6,33 +6,41 @@ import (
 	"time"
 )
 
+//var wg sync.WaitGroup
+
 type Job interface {
 	DoSomething()
 }
 
 type worker struct {
 	jobChan chan Job
-	quit    chan bool
+	//IsIdle  bool
 }
 
 func NewWorker() worker {
 	return worker{
 		jobChan: make(chan Job),
-		quit:    make(chan bool),
+		//IsIdle:  true,
 	}
 }
 func (w *worker) Run(wq chan chan Job) {
 	go func() {
+		//将worker通道注册到
+		wq <- w.jobChan
 		for {
-			wq <- w.jobChan
 			select {
 			case job := <-w.jobChan:
 				job.DoSomething()
-			case <-w.quit:
-				return
 			}
 		}
+
+		/*for job := range w.jobChan {
+			job.DoSomething()
+		}*/
 	}()
+}
+func (w *worker) Report() {
+
 }
 
 type workerPool struct {
@@ -83,16 +91,22 @@ func main() {
 	p := NewWorkerPool(workerNum)
 	p.Run()
 
-	//数据
+	//写数据
 	dataNum := 100 * 100 * 10
 	go func() {
 		for i := 0; i < dataNum; i++ {
 			c := &Code{Num: i}
 			p.jobQueue <- c
 		}
+		close(p.jobQueue)
 	}()
+	//wg.Wait()
+	//close(p.workerQueue)
+
+	//维持程序运行
 	for {
 		fmt.Println("runtime.NumGoroutine() :", runtime.NumGoroutine())
 		time.Sleep(5 * time.Second)
 	}
+
 }
